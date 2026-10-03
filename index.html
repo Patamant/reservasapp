@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <title>Reservas</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📅</text></svg>">
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+
+  <!-- ============================== LOGIN ============================== -->
+  <section id="pantalla-login" class="login">
+    <div class="login-panel">
+      <div class="marca marca-login" data-marca></div>
+      <h1 class="login-titulo" data-nombre-conjunto></h1>
+      <p class="login-sub">Reserva de parqueaderos y piscina</p>
+
+      <form id="form-login" class="form-login" novalidate>
+        <label class="campo-label" for="login-usuario">Usuario</label>
+        <div class="campo">
+          <span class="ico" data-ico="usuario"></span>
+          <input id="login-usuario" name="usuario" type="text" autocomplete="username"
+                 autocapitalize="none" autocorrect="off" spellcheck="false" required>
+        </div>
+
+        <label class="campo-label" for="login-password">Contraseña</label>
+        <div class="campo">
+          <span class="ico" data-ico="candado"></span>
+          <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+          <button type="button" id="btn-ver-pass" class="campo-accion" aria-label="Mostrar contraseña">
+            <span class="ico" data-ico="ojo"></span>
+          </button>
+        </div>
+
+        <p id="login-mensaje" class="login-mensaje" role="alert" aria-live="polite"></p>
+
+        <button type="submit" id="btn-login" class="btn btn-primario btn-bloque">Ingresar</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============================== APLICACIÓN ============================== -->
+  <div id="shell" class="shell" hidden>
+    <header class="barra">
+      <div class="barra-menu">
+        <button id="btn-menu" class="barra-btn" aria-haspopup="true" aria-expanded="false" aria-controls="menu-lista">
+          <span class="ico" data-ico="menu"></span><span>Menú</span>
+        </button>
+        <div id="menu-lista" class="menu" role="menu" hidden></div>
+      </div>
+      <div class="barra-usuario" title="Usuario conectado">
+        <span class="ico" data-ico="casa"></span>
+        <span id="nombre-usuario" class="barra-nombre"></span>
+      </div>
+      <button id="btn-cerrar" class="barra-btn">
+        <span class="ico" data-ico="salir"></span><span>Cerrar</span>
+      </button>
+    </header>
+
+    <main class="contenido">
+      <!-- ---------- PRINCIPAL ---------- -->
+      <section id="pantalla-principal" class="pantalla">
+        <div class="marca marca-principal" data-marca></div>
+
+        <div id="botones-grupo" class="botones-grupo"></div>
+
+        <section class="agenda" aria-labelledby="agenda-titulo">
+          <div class="agenda-cabecera">
+            <h2 id="agenda-titulo"><span class="ico" data-ico="calendario"></span>Agenda de espacios</h2>
+            <button id="btn-refrescar" class="btn-icono" aria-label="Actualizar agenda" title="Actualizar agenda">
+              <span class="ico" data-ico="refrescar"></span>
+            </button>
+          </div>
+          <div id="agenda" class="agenda-lista"></div>
+        </section>
+      </section>
+
+      <!-- ---------- RESERVA (parqueaderos, piscina y futuros espacios) ---------- -->
+      <section id="pantalla-reserva" class="pantalla" hidden>
+        <div class="reserva-cabecera">
+          <button id="btn-volver" class="btn-volver"><span class="ico" data-ico="volver"></span>Volver</button>
+          <h2 id="reserva-titulo"></h2>
+        </div>
+
+        <div id="paso-espacio" class="paso"></div>
+
+        <div id="paso-modalidad" class="paso" hidden></div>
+
+        <div id="paso-fecha" class="paso" hidden>
+          <h3 class="paso-titulo"><span class="ico" data-ico="calendario"></span>Fecha</h3>
+          <p id="ayuda-anticipacion" class="ayuda"></p>
+          <div id="calendario" class="calendario"></div>
+        </div>
+
+        <div id="paso-horario" class="paso" hidden>
+          <h3 class="paso-titulo" id="horario-titulo"><span class="ico" data-ico="reloj"></span>Horario</h3>
+          <div class="leyenda">
+            <span><i class="punto libre"></i>Disponible</span>
+            <span><i class="punto ocupado"></i>No disponible</span>
+          </div>
+          <div id="opciones"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ============================== CAPAS ============================== -->
+  <div id="modal" class="modal" hidden>
+    <div class="modal-fondo" data-cerrar-modal></div>
+    <div class="modal-caja" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+      <h3 id="modal-titulo"></h3>
+      <div id="modal-cuerpo"></div>
+      <div class="modal-acciones">
+        <button id="modal-cancelar" class="btn btn-secundario" data-cerrar-modal>Volver</button>
+        <button id="modal-confirmar" class="btn btn-primario"></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="carga" class="carga" hidden>
+    <div class="carga-caja"><div class="spinner"></div><p id="carga-texto">Cargando…</p></div>
+  </div>
+
+  <div id="avisos" class="avisos" aria-live="polite"></div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
