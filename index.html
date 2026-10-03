@@ -72,22 +72,35 @@
       <!-- ---------- PRINCIPAL ---------- -->
       <section id="pantalla-principal" class="pantalla">
         <div class="portada">
-          <div class="marca marca-principal" data-marca></div>
-          <p class="saludo" id="saludo"></p>
+          <div class="portada-fondo" aria-hidden="true"></div>
+          <div class="portada-contenido">
+            <div class="marca marca-principal" data-marca></div>
+            <div class="portada-texto">
+              <h1 class="saludo" id="saludo"></h1>
+              <p class="portada-sub" id="portada-sub"></p>
+              <div id="proxima" class="proxima" aria-live="polite"></div>
+            </div>
+          </div>
         </div>
 
-        <div id="botones-grupo" class="acciones"></div>
+        <h2 class="titulo-seccion" id="acciones-titulo">¿Qué quieres reservar?</h2>
+        <div id="botones-grupo" class="acciones" aria-labelledby="acciones-titulo"></div>
 
         <section class="agenda" aria-labelledby="agenda-titulo">
           <div class="agenda-cabecera">
-            <h2 id="agenda-titulo">Agenda de espacios</h2>
-            <button id="btn-refrescar" class="btn-icono" aria-label="Actualizar agenda" title="Actualizar agenda">
-              <span class="ico" data-ico="refrescar"></span>
-            </button>
-          </div>
-          <div class="filtros" role="group" aria-label="Filtrar reservas">
-            <button class="filtro" data-filtro="todas" aria-pressed="true">Todas</button>
-            <button class="filtro" data-filtro="mias" aria-pressed="false">Mis reservas</button>
+            <div>
+              <h2 id="agenda-titulo" class="titulo-seccion">Agenda de espacios</h2>
+              <p class="agenda-sub">Reservas en curso y próximas de todo el conjunto.</p>
+            </div>
+            <div class="agenda-controles">
+              <div class="filtros" role="group" aria-label="Filtrar reservas">
+                <button class="filtro" data-filtro="todas" aria-pressed="true">Todas</button>
+                <button class="filtro" data-filtro="mias" aria-pressed="false">Mis reservas</button>
+              </div>
+              <button id="btn-refrescar" class="btn-icono" aria-label="Actualizar agenda" title="Actualizar agenda">
+                <span class="ico" data-ico="refrescar"></span>
+              </button>
+            </div>
           </div>
           <div id="agenda" class="agenda-lista" aria-live="polite"></div>
         </section>

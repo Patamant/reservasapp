@@ -183,43 +183,81 @@ h1, h2, h3 { margin: 0; line-height: 1.2; letter-spacing: -0.01em; }
 /* =========================================================================
  *  CONTENIDO GENERAL
  * ========================================================================= */
+.shell { overflow-x: clip; }
 .contenido { max-width: 1040px; margin: 0 auto; padding: 0 16px 48px; }
 .contenido.con-barra { padding-bottom: 140px; }
 
-/* ---------- Portada ---------- */
-.portada { text-align: center; padding: 28px 0 22px; }
-.saludo { margin: 14px 0 0; font-size: 1.05rem; color: var(--tinta-2); font-weight: 300; }
-.saludo strong { color: var(--tinta); font-weight: 600; }
+/* ---------- Portada (franja marina con logo, saludo y próxima reserva) ---------- */
+.portada { position: relative; isolation: isolate; padding: 28px 0 76px; color: var(--blanco); }
+.portada-fondo {
+  position: absolute; top: 0; bottom: 0; left: 50%; width: 100vw; margin-left: -50vw; z-index: -1;
+  background-color: var(--marino);
+  background-image:
+    radial-gradient(120% 90% at 85% 0%, rgba(59,120,201,.45) 0%, transparent 60%),
+    repeating-linear-gradient(90deg, transparent 0 78px, rgba(255,255,255,.06) 78px 80px);
+}
+.portada-contenido { display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center; }
+.marca-principal {
+  width: 112px; height: 112px; padding: 10px; border-radius: 28px; background: var(--blanco);
+  box-shadow: 0 12px 30px rgba(0,0,0,.25);
+}
+.marca-principal img { max-height: 92px; border-radius: 18px; }
+.marca-principal .marca-texto { border: 0; padding: 0; font-size: .95rem; }
+.saludo { font-size: 1.6rem; font-weight: 600; letter-spacing: -0.02em; }
+.portada-sub { margin: 4px 0 0; color: rgba(255,255,255,.75); font-weight: 300; }
+.proxima {
+  display: inline-flex; align-items: center; gap: 10px; margin-top: 16px; padding: 8px 14px 8px 8px;
+  border-radius: 18px; background: rgba(255,255,255,.1); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14);
+  font-size: .9rem; text-align: left;
+}
+.proxima:empty { display: none; }
+.proxima .ico-redondo {
+  display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; flex: none;
+  border-radius: 50%; background: var(--verde); color: var(--marino);
+}
+.proxima .ico-redondo .ico { width: 17px; height: 17px; }
+.proxima span { color: rgba(255,255,255,.75); font-weight: 300; }
+.proxima strong { font-weight: 500; }
 
-/* ---------- Accesos principales ---------- */
-.acciones { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.titulo-seccion { font-size: 1.2rem; font-weight: 600; letter-spacing: -0.01em; }
+#acciones-titulo { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* ---------- Accesos principales (tarjetas que montan sobre la franja) ---------- */
+.acciones { position: relative; display: grid; grid-template-columns: 1fr; gap: 12px; margin-top: -52px; }
 .accion {
-  position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: 22px;
-  min-height: 150px; padding: 16px; border: 0; border-radius: var(--r-panel); text-align: left;
-  background: var(--marino); color: var(--blanco); overflow: hidden;
-  transition: transform .12s, background-color .15s;
+  position: relative; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px;
+  padding: 16px; border: 0; border-radius: var(--r-panel); text-align: left; color: var(--tinta);
+  background: var(--blanco); box-shadow: 0 1px 2px rgba(15,30,61,.06), 0 10px 30px rgba(15,30,61,.12);
+  transition: transform .15s ease, box-shadow .15s ease;
 }
-.accion:nth-child(even) { background: var(--azul); }
-.accion:hover { background: var(--marino-2); }
-.accion:nth-child(even):hover { background: var(--azul-2); }
-.accion:active { transform: scale(.98); }
+@media (hover: hover) {
+  .accion:hover { transform: translateY(-2px); box-shadow: 0 2px 4px rgba(15,30,61,.06), 0 16px 36px rgba(15,30,61,.16); }
+  .accion:hover .accion-flecha { background: var(--verde); color: var(--marino); }
+}
+.accion:active { transform: translateY(0) scale(.99); }
 .accion-icono {
-  display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px;
-  border-radius: 14px; background: rgba(255,255,255,.12);
+  display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px;
+  border-radius: 16px; background: var(--marino); color: var(--blanco);
 }
-.accion-icono .ico { width: 28px; height: 28px; }
-.accion-texto strong { display: block; font-size: 1.08rem; font-weight: 600; line-height: 1.25; }
-.accion-texto span { display: block; margin-top: 4px; font-size: .82rem; font-weight: 300; opacity: .85; }
-.accion-flecha { position: absolute; top: 16px; right: 14px; opacity: .6; }
-.accion-flecha .ico { width: 20px; height: 20px; }
+.accion:nth-child(even) .accion-icono { background: var(--azul); }
+.accion-icono .ico { width: 30px; height: 30px; }
+.accion-texto { min-width: 0; }
+.accion-texto strong { display: block; font-size: 1.05rem; font-weight: 600; line-height: 1.25; }
+.accion-texto span { display: block; margin-top: 3px; font-size: .86rem; color: var(--tinta-2); font-weight: 300; }
+.accion-flecha {
+  display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px;
+  border-radius: 50%; background: var(--superficie); color: var(--marino); transition: background-color .15s, color .15s;
+}
+.accion-flecha .ico { width: 18px; height: 18px; }
 
 /* =========================================================================
  *  AGENDA
  * ========================================================================= */
-.agenda { margin-top: 36px; }
-.agenda-cabecera { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.agenda-cabecera h2 { font-size: 1.3rem; font-weight: 600; }
-.filtros { display: inline-flex; gap: 4px; margin: 14px 0 4px; padding: 4px; background: var(--superficie); border-radius: 999px; }
+.agenda { margin-top: 40px; }
+.agenda-cabecera { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; }
+.agenda-sub { margin: 4px 0 0; font-size: .9rem; color: var(--tinta-2); font-weight: 300; }
+.agenda-controles { display: flex; align-items: center; gap: 8px; }
+.filtros { display: inline-flex; gap: 4px; padding: 4px; background: var(--superficie); border-radius: 999px; }
 .filtro {
   border: 0; background: transparent; padding: 8px 16px; min-height: 38px; border-radius: 999px;
   font-size: .9rem; font-weight: 500; color: var(--tinta-2);
@@ -228,7 +266,9 @@ h1, h2, h3 { margin: 0; line-height: 1.2; letter-spacing: -0.01em; }
 .agenda-lista { transition: opacity .2s; }
 .agenda-lista.cargando { opacity: .45; pointer-events: none; }
 
-.grupo { margin-top: 22px; }
+.grupo { margin-top: 24px; }
+.grupo-lista { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.grupo-lista .ticket { margin-bottom: 0; }
 .grupo-titulo { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 1rem; font-weight: 600; }
 .grupo-icono {
   display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px;
@@ -499,8 +539,12 @@ h1, h2, h3 { margin: 0; line-height: 1.2; letter-spacing: -0.01em; }
 @media (min-width: 640px) {
   .contenido { padding: 0 28px 64px; }
   .barra { padding-left: 20px; padding-right: 20px; }
-  .accion { min-height: 170px; padding: 20px; }
-  .accion-texto strong { font-size: 1.2rem; }
+  .acciones { grid-template-columns: 1fr 1fr; gap: 16px; }
+  .accion { padding: 20px; }
+  .accion-texto strong { font-size: 1.15rem; }
+  .portada { padding: 36px 0 84px; }
+  .portada-contenido { flex-direction: row; justify-content: center; text-align: left; gap: 24px; }
+  .saludo { font-size: 1.9rem; }
   .horarios { grid-template-columns: repeat(3, 1fr); }
   .horarios.horas { grid-template-columns: repeat(4, 1fr); }
   .ticket { grid-template-columns: 92px 1fr; }
@@ -510,9 +554,9 @@ h1, h2, h3 { margin: 0; line-height: 1.2; letter-spacing: -0.01em; }
 }
 
 @media (min-width: 960px) {
-  .portada { padding-top: 36px; }
-  .acciones { max-width: 720px; margin: 0 auto; }
-  .agenda { max-width: 720px; margin-left: auto; margin-right: auto; }
+  .grupo-lista { grid-template-columns: 1fr 1fr; }
+  .marca-principal { width: 128px; height: 128px; }
+  .marca-principal img { max-height: 108px; }
   .reserva-cuerpo { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; align-items: start; }
   .reserva-col:last-child { position: sticky; top: 76px; }
   .reserva-col:first-child .paso:last-child { border-bottom: 0; }
@@ -526,9 +570,8 @@ h1, h2, h3 { margin: 0; line-height: 1.2; letter-spacing: -0.01em; }
 
 @media (max-width: 380px) {
   .barra-txt { display: none; }
-  .acciones, .espacios { grid-template-columns: 1fr; }
-  .accion { min-height: 112px; flex-direction: row; align-items: center; justify-content: flex-start; gap: 14px; }
-  .accion-flecha { top: 50%; transform: translateY(-50%); }
+  .espacios { grid-template-columns: 1fr; }
+  .accion-icono { width: 48px; height: 48px; }
   .opcion-tarjeta.modalidad { min-height: 0; flex-direction: row; align-items: center; gap: 10px; }
   .horarios.horas { grid-template-columns: repeat(2, 1fr); }
 }

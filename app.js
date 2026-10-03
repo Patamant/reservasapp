@@ -319,7 +319,8 @@ async function cargarPrincipal() {
   const persona = separarNombre(E.usuario);
   $('#nombre-usuario').textContent = E.usuario.nombreMostrar;
   $('#avatar').textContent = persona.casa ? 'C' + persona.casa : '·';
-  $('#saludo').innerHTML = 'Hola, <strong>' + esc(persona.nombre) + '</strong>. ¿Qué quieres reservar?';
+  $('#saludo').textContent = 'Hola, ' + persona.nombre;
+  cargarSubtitulo();
 
   renderMenu();
   renderAcciones();
@@ -330,6 +331,12 @@ async function cargarPrincipal() {
   $('#pantalla-login').hidden = true;
   $('#shell').hidden = false;
   mostrarPantalla('principal');
+}
+
+function cargarSubtitulo() {
+  const persona = separarNombre(E.usuario);
+  $('#portada-sub').textContent = (persona.casa ? 'Casa ' + persona.casa : '') +
+    (E.nombreConjunto ? (persona.casa ? ', ' : '') + E.nombreConjunto : '');
 }
 
 function renderMenu() {
@@ -359,7 +366,7 @@ function renderAcciones() {
     return '<button class="accion" data-grupo="' + esc(g.tipo) + '">' +
       '<span class="accion-icono">' + icono(g.icono) + '</span>' +
       '<span class="accion-texto"><strong>' + esc(g.etiqueta) + '</strong><span>' + esc(detalle) + '</span></span>' +
-      '<span class="accion-flecha">' + icono('derecha') + '</span>' +
+      '<span class="accion-flecha" aria-hidden="true">' + icono('derecha') + '</span>' +
     '</button>';
   }).join('');
 }
@@ -383,7 +390,30 @@ async function refrescarAgenda() {
   }
 }
 
+/** Clave ordenable "yyyyMMddHHmm" a partir de "dd/MM/yyyy" y "HH:mm". */
+function claveFecha(fecha, hora) {
+  return fecha.slice(6, 10) + fecha.slice(3, 5) + fecha.slice(0, 2) + hora.replace(':', '');
+}
+
+/** Muestra en la portada la próxima reserva del usuario conectado. */
+function renderProxima() {
+  const mias = [];
+  E.agenda.forEach(g => g.reservas.forEach(r => { if (r.esPropia) mias.push(r); }));
+  mias.sort((a, b) => claveFecha(a.fechaInicio, a.horaInicio) < claveFecha(b.fechaInicio, b.horaInicio) ? -1 : 1);
+  const r = mias[0];
+  const cont = $('#proxima');
+  if (!r) {
+    cont.innerHTML = '<span class="ico-redondo">' + icono('calendario') + '</span><span>No tienes reservas próximas</span>';
+    return;
+  }
+  const cuando = r.enCurso ? 'en curso hasta las ' + r.horaFin : fechaCorta(r.fechaInicio) + ', ' + r.horaInicio;
+  cont.innerHTML = '<span class="ico-redondo">' + icono('check') + '</span>' +
+    '<span>' + (r.enCurso ? 'Ahora' : 'Tu próxima reserva') + ': <strong>' + esc(r.nombreEspacio) + ', ' + esc(cuando) + '</strong>' +
+    (mias.length > 1 ? ' (+' + (mias.length - 1) + ')' : '') + '</span>';
+}
+
 function renderAgenda() {
+  renderProxima();
   E.agendaIndice = {};
   const cont = $('#agenda');
   const soloMias = E.filtro === 'mias';
@@ -395,7 +425,7 @@ function renderAgenda() {
     cont.innerHTML = '<div class="vacio">' + icono('calendarioVacio') +
       (soloMias
         ? '<strong>No tienes reservas vigentes</strong><p>Usa los botones de arriba para reservar un espacio.</p>'
-        : '<strong>No existen reservas vigentes</strong><p>Todos los espacios están libres. Reserva con 24 horas de anticipación.</p>') +
+        : '<strong>No existen reservas vigentes</strong><p>Todos los espacios están libres por ahora.</p>') +
       '</div>';
     return;
   }
@@ -406,7 +436,7 @@ function renderAgenda() {
     return '<section class="grupo">' +
       '<h3 class="grupo-titulo"><span class="grupo-icono">' + icono(g.icono) + '</span>' + esc(g.nombreEspacio) +
         '<span class="grupo-cuenta">' + n + (n === 1 ? ' reserva' : ' reservas') + '</span></h3>' +
-      g.reservas.map(tarjetaReserva).join('') +
+      '<div class="grupo-lista">' + g.reservas.map(tarjetaReserva).join('') + '</div>' +
     '</section>';
   }).join('');
 }
@@ -967,6 +997,7 @@ function iniciar() {
         E.nombreConjunto = r.nombreConjunto;
         document.title = 'Reservas · ' + r.nombreConjunto;
         pintarMarca();
+        if (E.usuario) cargarSubtitulo();
       }
     })
     .catch(() => {});
