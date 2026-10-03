@@ -1,5 +1,8 @@
 'use strict';
 
+/** Versión de esta página. Debe coincidir con VERSION_API de Codigo.gs. */
+const VERSION_APP = '1.6';
+
 /* =========================================================================
  *  ICONOS LINEALES
  * ========================================================================= */
@@ -64,6 +67,11 @@ const TEXTO_ESTADO = {
   BLOQUEADO: 'No disponible'
 };
 
+function textoEstado(estado, m) {
+  if (estado === 'ANTICIPACION' && m) return 'Menos de ' + m.anticipacionHoras + ' h';
+  return TEXTO_ESTADO[estado] || 'No disponible';
+}
+
 const $ = (sel, ctx) => (ctx || document).querySelector(sel);
 const $$ = (sel, ctx) => Array.from((ctx || document).querySelectorAll(sel));
 const pad = n => String(n).padStart(2, '0');
@@ -97,6 +105,22 @@ function separarNombre(usuario) {
   const partes = texto.split(/\s+-\s+/);
   const nombre = partes.length > 1 ? partes.slice(1).join(' - ') : texto;
   return { nombre: nombre || texto, casa: usuario && usuario.casa };
+}
+
+/* ---------- Placa del vehículo ---------- */
+/** Misma regla que el servidor: 5 a 8 letras y números, con ambos. Autos: PBA-1234. */
+function normalizarPlaca(valor) {
+  const t = String(valor || '').toUpperCase().replace(/[\s.\-]/g, '');
+  if (!/^[A-Z0-9]{5,8}$/.test(t) || !/[A-Z]/.test(t) || !/[0-9]/.test(t)) return '';
+  const auto = t.match(/^([A-Z]{3})([0-9]{3,4})$/);
+  return auto ? auto[1] + '-' + auto[2] : t;
+}
+function clavePlaca() { return 'reservas:placa:' + ((E.usuario && E.usuario.usuario) || ''); }
+function ultimaPlaca() {
+  try { return localStorage.getItem(clavePlaca()) || ''; } catch (e) { return ''; }
+}
+function recordarPlaca(placa) {
+  try { localStorage.setItem(clavePlaca(), placa); } catch (e) { /* sin almacenamiento local */ }
 }
 
 /* ---------- Llamadas al servidor (API de Apps Script) ---------- */
@@ -184,6 +208,7 @@ function aviso(texto, tipo) {
 }
 
 let accionModal = null;
+let validarModal = null;   // si existe y devuelve false, el modal no se cierra al confirmar
 /**
  * cfg: { titulo, cuerpo, confirmar, claseConfirmar, volver, alConfirmar, exito (bool), soloConfirmar (bool) }
  */
@@ -202,12 +227,14 @@ function abrirModal(cfg) {
   $('#modal-cancelar').textContent = cfg.volver || 'Volver';
   $('#modal-acciones').classList.toggle('una', !!cfg.soloConfirmar);
   accionModal = cfg.alConfirmar || (() => {});
+  validarModal = cfg.validar || null;
   $('#modal').hidden = false;
-  btn.focus();
+  if (cfg.alAbrir) cfg.alAbrir(btn); else btn.focus();
 }
 function cerrarModal() {
   $('#modal').hidden = true;
   accionModal = null;
+  validarModal = null;
 }
 
 /* ---------- Marca (logo o nombre del conjunto) ---------- */
@@ -235,6 +262,12 @@ function mostrarPantalla(nombre) {
   E.pantalla = nombre;
   $('#pantalla-principal').hidden = nombre !== 'principal';
   $('#pantalla-reserva').hidden = nombre !== 'reserva';
+  const visible = $('#pantalla-' + nombre);
+  if (visible) {
+    visible.classList.remove('entrando');
+    void visible.offsetWidth;            // reinicia la animación
+    visible.classList.add('entrando');
+  }
   if (nombre !== 'reserva') actualizarBarraSeleccion();
   $$('.menu-item').forEach(b => b.classList.toggle('actual',
     b.dataset.pantalla === nombre || (b.dataset.pantalla === 'principal' && nombre === 'reserva')));
@@ -257,6 +290,7 @@ function finSesionLocal(mensaje) {
   E.usuario = null;
   E.r = null;
   clearTimeout(temporizador);
+  clearInterval(relojIntervalo);
   cerrarModal();
   cerrarMenu();
   actualizarBarraSeleccion();
@@ -327,6 +361,7 @@ async function cargarPrincipal() {
   renderFiltros();
   E.agenda = r.agenda || [];
   renderAgenda();
+  iniciarReloj();
 
   $('#pantalla-login').hidden = true;
   $('#shell').hidden = false;
@@ -395,6 +430,61 @@ function claveFecha(fecha, hora) {
   return fecha.slice(6, 10) + fecha.slice(3, 5) + fecha.slice(0, 2) + hora.replace(':', '');
 }
 
+/* ---------- Reloj y estado en vivo de cada espacio ---------- */
+const FORMATO_AHORA = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/Guayaquil', year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+});
+/** Hora actual en Ecuador: {clave:"yyyyMMddHHmm", fecha:"yyyy-MM-dd", hora:"HH:mm"} */
+function ahoraEcuador() {
+  const p = {};
+  FORMATO_AHORA.formatToParts(new Date()).forEach(x => { p[x.type] = x.value; });
+  return { clave: p.year + p.month + p.day + p.hour + p.minute, fecha: p.year + '-' + p.month + '-' + p.day, hora: p.hour + ':' + p.minute };
+}
+
+function renderAhora() {
+  if (!E.usuario) return;
+  const ahora = ahoraEcuador();
+  $('#reloj').textContent = fechaLarga(ahora.fecha).replace(/^./, c => c.toUpperCase()) + ', ' + ahora.hora;
+
+  const hoy = ahora.fecha.replace(/-/g, '');
+  const cont = $('#estado-espacios');
+  const tarjetas = [];
+  E.grupos.forEach(g => g.espacios.forEach(esp => {
+    const grupoAgenda = E.agenda.find(a => a.idEspacio === esp.id);
+    const reservas = grupoAgenda ? grupoAgenda.reservas : [];
+    const actual = reservas.find(r => claveFecha(r.fechaInicio, r.horaInicio) <= ahora.clave && ahora.clave < claveFecha(r.fechaFin, r.horaFin));
+    const siguiente = reservas
+      .filter(r => claveFecha(r.fechaInicio, r.horaInicio) > ahora.clave && claveFecha(r.fechaInicio, r.horaInicio).slice(0, 8) === hoy)
+      .sort((a, b) => claveFecha(a.fechaInicio, a.horaInicio) < claveFecha(b.fechaInicio, b.horaInicio) ? -1 : 1)[0];
+    let estado, detalle;
+    if (actual) {
+      estado = 'ocupado';
+      const otroDia = claveFecha(actual.fechaFin, actual.horaFin).slice(0, 8) !== hoy;
+      detalle = 'Ocupado hasta ' + (otroDia ? fechaCorta(actual.fechaFin) + ', ' : 'las ') + actual.horaFin;
+    } else if (siguiente) {
+      estado = 'libre';
+      detalle = 'Libre hasta las ' + siguiente.horaInicio;
+    } else {
+      estado = 'libre';
+      detalle = 'Libre el resto del día';
+    }
+    tarjetas.push('<button class="estado-espacio ' + estado + '" data-ir-grupo="' + esc(g.tipo) + '" data-ir-espacio="' + esc(esp.id) + '">' +
+      '<span class="estado-icono">' + icono(g.icono) + '</span>' +
+      '<span class="estado-texto"><strong>' + esc(esp.nombre) + '</strong><span>' + esc(detalle) + '</span></span>' +
+      '<span class="estado-punto" aria-hidden="true"></span>' +
+    '</button>');
+  }));
+  cont.innerHTML = tarjetas.join('');
+}
+
+let relojIntervalo = null;
+function iniciarReloj() {
+  clearInterval(relojIntervalo);
+  renderAhora();
+  relojIntervalo = setInterval(() => { if (E.usuario && E.pantalla === 'principal') renderAhora(); }, 30000);
+}
+
 /** Muestra en la portada la próxima reserva del usuario conectado. */
 function renderProxima() {
   const mias = [];
@@ -414,6 +504,7 @@ function renderProxima() {
 
 function renderAgenda() {
   renderProxima();
+  renderAhora();
   E.agendaIndice = {};
   const cont = $('#agenda');
   const soloMias = E.filtro === 'mias';
@@ -436,7 +527,7 @@ function renderAgenda() {
     return '<section class="grupo">' +
       '<h3 class="grupo-titulo"><span class="grupo-icono">' + icono(g.icono) + '</span>' + esc(g.nombreEspacio) +
         '<span class="grupo-cuenta">' + n + (n === 1 ? ' reserva' : ' reservas') + '</span></h3>' +
-      '<div class="grupo-lista">' + g.reservas.map(tarjetaReserva).join('') + '</div>' +
+      '<div class="grupo-lista">' + g.reservas.map((r, i) => tarjetaReserva(r).replace('<article ', '<article style="--i:' + Math.min(i, 8) + '" ')).join('') + '</div>' +
     '</section>';
   }).join('');
 }
@@ -472,6 +563,7 @@ function tarjetaReserva(r) {
       '<div class="ticket-hora">' + hora + '</div>' +
       '<div class="ticket-linea"><span>Reservado por:</span> ' + esc(r.nombreMostrar) + '</div>' +
       detalle +
+      (r.placa ? '<div class="ticket-linea"><span>Placa:</span> <b class="placa-chip">' + esc(r.placa) + '</b></div>' : '') +
       '<div class="ticket-pie"><div class="ticket-etiquetas">' + etiquetas + '</div>' +
         (r.cancelable ? '<button class="btn-cancelar" data-cancelar="' + esc(r.idReserva) + '">Cancelar</button>' : '') +
       '</div>' +
@@ -506,7 +598,7 @@ function pedirCancelacion(id) {
 /* =========================================================================
  *  PANTALLA DE RESERVA (genérica por tipo de espacio)
  * ========================================================================= */
-function abrirGrupo(tipo) {
+function abrirGrupo(tipo, opciones) {
   const g = E.grupos.find(x => x.tipo === tipo);
   if (!g) return;
   const min = E.calendario.fechaMinima;
@@ -522,9 +614,16 @@ function abrirGrupo(tipo) {
     solicitud: 0,
     vista: { anio: Number(min.slice(0, 4)), mes: Number(min.slice(5, 7)) - 1 }
   };
+  if (opciones && opciones.espacioId) E.r.espacioId = opciones.espacioId;
+  const primera = g.modalidades[0];
+  const minPrimera = primera.fechaMinima || min;
+  if (primera.soloHoy) E.r.fecha = E.calendario.hoy;
+  const ref = E.r.fecha || minPrimera;
+  E.r.vista = { anio: Number(ref.slice(0, 4)), mes: Number(ref.slice(5, 7)) - 1 };
   $('#reserva-titulo').textContent = g.titulo;
   renderReserva();
   mostrarPantalla('reserva');
+  if (E.r.espacioId && E.r.fecha) cargarDisponibilidad();
 }
 
 /** Numera solo los pasos que el usuario realmente debe completar. */
@@ -588,7 +687,7 @@ function textoDuraciones(m) {
 function rangoFechas() {
   const m = modalidadActual();
   return {
-    min: m.requiereAnticipacion === false ? E.calendario.hoy : E.calendario.fechaMinima,
+    min: m.fechaMinima || (m.requiereAnticipacion === false ? E.calendario.hoy : E.calendario.fechaMinima),
     max: m.soloHoy ? E.calendario.hoy : null
   };
 }
@@ -608,6 +707,7 @@ function renderModalidades() {
       '<button class="opcion-tarjeta modalidad" data-modalidad="' + esc(m.id) + '" aria-pressed="' + (m.id === E.r.modalidadId) + '">' +
         '<span class="duracion">' + textoDuraciones(m) + '</span>' +
         '<strong>' + esc(m.nombre) + '</strong>' +
+        '<small>' + (m.soloHoy ? 'Solo hoy' : m.anticipacionHoras ? 'Con ' + m.anticipacionHoras + ' h de anticipación' : 'Desde hoy') + '</small>' +
       '</button>').join('') +
     '</div><p class="modalidad-desc">' + esc(actual.descripcion) + '</p>';
 }
@@ -619,9 +719,9 @@ function renderCalendario() {
   const m = modalidadActual();
   $('#ayuda-anticipacion').textContent = m.soloHoy
     ? 'Esta modalidad es solo para hoy.'
-    : m.requiereAnticipacion === false
-      ? 'Puedes reservar desde hoy mismo. Los días no disponibles aparecen en gris.'
-      : 'Esta modalidad requiere ' + E.calendario.anticipacionHoras + ' horas de anticipación. Los días no disponibles aparecen en gris.';
+    : m.anticipacionHoras
+      ? 'Se reserva con al menos ' + m.anticipacionHoras + ' horas de anticipación. Los días no disponibles aparecen en gris.'
+      : 'Puedes reservar desde hoy mismo. Los días no disponibles aparecen en gris.';
 
   const v = E.r.vista;
   const rango = rangoFechas();
@@ -716,7 +816,8 @@ function renderOpciones() {
 
   if (!E.r.fecha) { cont.innerHTML = ''; return; }
   if (E.r.cargando) {
-    cont.innerHTML = '<div class="cargando-linea"><div class="spinner"></div>Consultando horarios libres…</div>';
+    cont.innerHTML = '<div class="horarios esqueleto-horarios" aria-label="Consultando horarios libres">' +
+      '<span></span><span></span><span></span><span></span><span></span><span></span></div>';
     return;
   }
   const m = modalidadDisponible();
@@ -737,14 +838,14 @@ function renderOpciones() {
     let principal, secundario;
     if (m.presentacion === 'BLOQUES') {
       principal = o.horaInicio + ' – ' + o.horaFin;
-      secundario = o.disponible ? 'Disponible' : TEXTO_ESTADO[o.estado];
+      secundario = o.disponible ? 'Disponible' : textoEstado(o.estado, m);
     } else if (variasDuraciones) {
       principal = o.horaInicio;
       const libres = o.duraciones.filter(d => d.disponible).map(d => d.horas);
-      secundario = o.disponible ? 'Hasta ' + Math.max.apply(null, libres) + ' h' : TEXTO_ESTADO[o.estado];
+      secundario = o.disponible ? 'Hasta ' + Math.max.apply(null, libres) + ' h' : textoEstado(o.estado, m);
     } else {
       principal = o.horaInicio;
-      secundario = o.disponible ? 'hasta ' + fechaCorta(o.fechaFin).replace(/^\S+ /, '') + ', ' + o.horaFin : TEXTO_ESTADO[o.estado];
+      secundario = o.disponible ? 'hasta ' + fechaCorta(o.fechaFin).replace(/^\S+ /, '') + ', ' + o.horaFin : textoEstado(o.estado, m);
     }
     const elegido = o.disponible && o.hora === E.r.hora;
     return '<button class="horario" data-hora="' + o.hora + '"' + (o.disponible ? '' : ' disabled') +
@@ -763,7 +864,7 @@ function renderOpciones() {
           ' aria-pressed="' + (d.disponible && d.horas === E.r.duracion) + '">' +
           '<span class="marca-check">' + icono('check') + '</span>' +
           '<strong>' + d.horas + (d.horas === 1 ? ' hora' : ' horas') + '</strong>' +
-          '<small>' + (d.disponible ? 'hasta las ' + esc(d.horaFin) : esc(TEXTO_ESTADO[d.estado])) + '</small></button>').join('') +
+          '<small>' + (d.disponible ? 'hasta las ' + esc(d.horaFin) : esc(textoEstado(d.estado, m))) + '</small></button>').join('') +
       '</div></div>';
   }
   cont.innerHTML = aviso + leyenda +
@@ -813,23 +914,73 @@ function abrirResumen() {
   const d = sel.d;
   const m = modalidadDisponible();
   const esp = espacioActual();
+  const pidePlaca = !!E.r.grupo.requierePlaca;
   abrirModal({
-    titulo: 'Confirma tu reserva',
+    titulo: pidePlaca ? 'Placa y confirmación' : 'Confirma tu reserva',
     cuerpo: '<dl class="resumen">' +
       '<div><dt>Espacio</dt><dd>' + esc(esp.nombre) + '</dd></div>' +
       '<div><dt>Modalidad</dt><dd>' + esc(m.nombre) + '</dd></div>' +
       '<div><dt>Inicio</dt><dd>' + esc(o.fechaInicio) + ' ' + esc(o.horaInicio) + '</dd></div>' +
       '<div><dt>Fin</dt><dd>' + esc(d.fechaFin) + ' ' + esc(d.horaFin) + '</dd></div>' +
       '<div><dt>Duración</dt><dd>' + d.horas + (d.horas === 1 ? ' hora' : ' horas') + '</dd></div>' +
-      '</dl><p class="modal-nota">Quedará a nombre de ' + esc(E.usuario.nombreMostrar) + ' y visible en la agenda para todos.</p>',
+      '</dl>' + (pidePlaca ? campoPlacaHtml() : '') +
+      '<p class="modal-nota">Quedará a nombre de ' + esc(E.usuario.nombreMostrar) + ' y visible en la agenda para todos.</p>',
     confirmar: 'Confirmar reserva',
     claseConfirmar: 'btn-exito',
-    alConfirmar: () => confirmarReserva(o.hora, d.horas)
+    alConfirmar: () => confirmarReserva(o.hora, d.horas, pidePlaca ? normalizarPlaca($('#placa').value) : ''),
+    validar: pidePlaca ? () => {
+      const ok = !!normalizarPlaca($('#placa').value);
+      if (!ok) { mostrarErrorPlaca(); $('#placa').focus(); }
+      return ok;
+    } : null,
+    alAbrir: pidePlaca ? btn => prepararCampoPlaca(btn) : null
   });
 }
 
-async function confirmarReserva(hora, duracion) {
-  const r = await llamar('crearReserva', [E.r.espacioId, E.r.modalidadId, E.r.fecha, hora, duracion],
+function campoPlacaHtml() {
+  return '<div class="campo-placa">' +
+    '<label class="campo-label" for="placa">Placa del vehículo <span class="obligatorio">obligatoria</span></label>' +
+    '<div class="campo campo-placa-input">' + icono('auto') +
+      '<input id="placa" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" ' +
+      'maxlength="10" placeholder="Ej. PBA-1234" aria-describedby="placa-ayuda" required>' +
+    '</div>' +
+    '<p id="placa-ayuda" class="placa-ayuda">Escribe la placa del vehículo que ocupará el parqueadero.</p>' +
+  '</div>';
+}
+
+function mostrarErrorPlaca() {
+  const ayuda = $('#placa-ayuda');
+  ayuda.textContent = 'Revisa la placa: usa de 5 a 8 letras y números, por ejemplo PBA-1234.';
+  ayuda.className = 'placa-ayuda error';
+  $('.campo-placa-input').classList.add('invalido');
+}
+
+/** Valida la placa mientras se escribe y habilita el botón solo cuando es válida. */
+function prepararCampoPlaca(btn) {
+  const input = $('#placa');
+  const ayuda = $('#placa-ayuda');
+  const caja = $('.campo-placa-input');
+  const actualizar = () => {
+    input.value = input.value.toUpperCase();
+    const placa = normalizarPlaca(input.value);
+    btn.disabled = !placa;
+    caja.classList.remove('invalido');
+    caja.classList.toggle('valido', !!placa);
+    ayuda.className = 'placa-ayuda' + (placa ? ' ok' : '');
+    ayuda.textContent = placa
+      ? 'Se guardará como ' + placa + '.'
+      : 'Escribe la placa del vehículo que ocupará el parqueadero.';
+  };
+  input.value = ultimaPlaca();
+  input.addEventListener('input', actualizar);
+  input.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); btn.click(); } });
+  actualizar();
+  setTimeout(() => { input.focus(); input.select(); }, 60);
+}
+
+async function confirmarReserva(hora, duracion, placa) {
+  if (placa) recordarPlaca(placa);
+  const r = await llamar('crearReserva', [E.r.espacioId, E.r.modalidadId, E.r.fecha, hora, duracion, placa],
     { carga: 'Guardando tu reserva…' });
   if (!r) return;                         // sesión expirada
   if (r.ok) {
@@ -841,6 +992,7 @@ async function confirmarReserva(hora, duracion) {
         '<div><dt>Espacio</dt><dd>' + esc(res.nombreEspacio) + '</dd></div>' +
         '<div><dt>Inicio</dt><dd>' + esc(res.inicio) + '</dd></div>' +
         '<div><dt>Fin</dt><dd>' + esc(res.fin) + '</dd></div>' +
+        (res.placa ? '<div><dt>Placa</dt><dd>' + esc(res.placa) + '</dd></div>' : '') +
         '</dl><p class="modal-nota">Si ya no la necesitas, puedes cancelarla desde la agenda.</p>',
       confirmar: 'Ver la agenda',
       claseConfirmar: 'btn-primario',
@@ -917,6 +1069,11 @@ function enlazarEventos() {
     renderAgenda();
   }));
 
+  $('#estado-espacios').addEventListener('click', ev => {
+    const b = ev.target.closest('[data-ir-grupo]');
+    if (b) abrirGrupo(b.dataset.irGrupo, { espacioId: b.dataset.irEspacio });
+  });
+
   $('#botones-grupo').addEventListener('click', ev => {
     const b = ev.target.closest('[data-grupo]');
     if (b) abrirGrupo(b.dataset.grupo);
@@ -965,6 +1122,7 @@ function enlazarEventos() {
   $('#modal-confirmar').addEventListener('click', async () => {
     const accion = accionModal;
     if (!accion) return;
+    if (validarModal && !validarModal()) return;
     $('#modal-confirmar').disabled = true;
     cerrarModal();
     await accion();
@@ -978,6 +1136,20 @@ function enlazarEventos() {
 /* =========================================================================
  *  INICIO
  * ========================================================================= */
+/** Muestra la versión y avisa si el servidor (Apps Script) quedó con una versión anterior. */
+function mostrarVersion(versionServidor) {
+  const el = $('#version');
+  if (versionServidor === VERSION_APP) {
+    el.textContent = 'Versión ' + VERSION_APP;
+    el.classList.remove('alerta');
+  } else {
+    el.textContent = 'Aviso para la administración: la página es la versión ' + VERSION_APP +
+      ' pero el servidor tiene la ' + (versionServidor || 'anterior') +
+      '. Publica la nueva versión en Apps Script (Gestionar implementaciones → Nueva versión).';
+    el.classList.add('alerta');
+  }
+}
+
 function iniciar() {
   $$('[data-ico]').forEach(el => { el.innerHTML = svg(el.dataset.ico); el.setAttribute('aria-hidden', 'true'); });
   enlazarEventos();
@@ -994,6 +1166,7 @@ function iniciar() {
   api('getConfigPublica')
     .then(r => {
       if (r && r.ok) {
+        mostrarVersion(r.version);
         E.nombreConjunto = r.nombreConjunto;
         document.title = 'Reservas · ' + r.nombreConjunto;
         pintarMarca();
