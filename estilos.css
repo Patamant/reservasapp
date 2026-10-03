@@ -345,7 +345,7 @@ h1, h2, h3 { margin: 0; line-height: 1.2; letter-spacing: -0.01em; }
 .espacio-unico strong { color: var(--tinta); font-weight: 600; }
 
 /* ---------- Modalidades ---------- */
-.modalidades { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.modalidades { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 .opcion-tarjeta.modalidad { min-height: 84px; padding: 12px; }
 .opcion-tarjeta.modalidad .duracion {
   font-size: .76rem; font-weight: 600; color: var(--azul-2); background: var(--azul-lavado);
@@ -415,6 +415,15 @@ h1, h2, h3 { margin: 0; line-height: 1.2; letter-spacing: -0.01em; }
   content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 4px; border-radius: 0 4px 4px 0;
   background: var(--gris);
 }
+
+.aviso-linea {
+  display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; padding: 12px 14px;
+  border-radius: var(--r-pieza); background: var(--azul-lavado); color: var(--marino); font-size: .9rem;
+}
+.aviso-linea .ico { width: 20px; height: 20px; color: var(--azul); }
+.duraciones { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--linea); animation: subir .18s ease-out; }
+.duraciones-titulo { margin: 0 0 10px; font-size: .98rem; font-weight: 600; }
+.duraciones .horarios { grid-template-columns: repeat(3, 1fr); }
 
 .cargando-linea { display: flex; align-items: center; gap: 10px; padding: 18px 0; color: var(--tinta-2); font-weight: 300; }
 .cargando-linea .spinner { width: 22px; height: 22px; margin: 0; border-width: 3px; }
@@ -520,7 +529,6 @@ h1, h2, h3 { margin: 0; line-height: 1.2; letter-spacing: -0.01em; }
   .acciones, .espacios { grid-template-columns: 1fr; }
   .accion { min-height: 112px; flex-direction: row; align-items: center; justify-content: flex-start; gap: 14px; }
   .accion-flecha { top: 50%; transform: translateY(-50%); }
-  .modalidades { grid-template-columns: 1fr; }
   .opcion-tarjeta.modalidad { min-height: 0; flex-direction: row; align-items: center; gap: 10px; }
   .horarios.horas { grid-template-columns: repeat(2, 1fr); }
 }

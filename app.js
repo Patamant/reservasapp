@@ -60,7 +60,8 @@ const DIAS_SEMANA = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const TEXTO_ESTADO = {
   OCUPADO: 'Reservado',
   PASADO: 'Ya pasó',
-  ANTICIPACION: 'Menos de 24 h'
+  ANTICIPACION: 'Menos de 24 h',
+  BLOQUEADO: 'No disponible'
 };
 
 const $ = (sel, ctx) => (ctx || document).querySelector(sel);
@@ -485,14 +486,13 @@ function abrirGrupo(tipo) {
     modalidadId: g.modalidades[0].id,
     fecha: null,
     hora: null,
+    duracion: null,
     disp: null,
     cargando: false,
     solicitud: 0,
     vista: { anio: Number(min.slice(0, 4)), mes: Number(min.slice(5, 7)) - 1 }
   };
   $('#reserva-titulo').textContent = g.titulo;
-  $('#ayuda-anticipacion').textContent = 'Puedes reservar desde ' + E.calendario.anticipacionHoras +
-    ' horas antes del inicio. Los días no disponibles aparecen en gris.';
   renderReserva();
   mostrarPantalla('reserva');
 }
@@ -549,6 +549,20 @@ function renderEspacios() {
     '</div>';
 }
 
+function textoDuraciones(m) {
+  const d = m.duraciones || [m.duracionHoras];
+  return d.length > 1 ? d[0] + ' a ' + d[d.length - 1] + ' h' : d[0] + ' h';
+}
+
+/** Fechas que permite la modalidad elegida (yyyy-MM-dd). */
+function rangoFechas() {
+  const m = modalidadActual();
+  return {
+    min: m.requiereAnticipacion === false ? E.calendario.hoy : E.calendario.fechaMinima,
+    max: m.soloHoy ? E.calendario.hoy : null
+  };
+}
+
 function renderModalidades() {
   const mods = E.r.grupo.modalidades;
   const actual = mods.find(m => m.id === E.r.modalidadId);
@@ -562,7 +576,7 @@ function renderModalidades() {
   cont.innerHTML = '<h3 class="paso-titulo">' + marcaPaso(n.modalidad, !!E.r.fecha) + '¿Por cuánto tiempo?</h3>' +
     '<div class="modalidades" role="group" aria-label="Modalidad">' + mods.map(m =>
       '<button class="opcion-tarjeta modalidad" data-modalidad="' + esc(m.id) + '" aria-pressed="' + (m.id === E.r.modalidadId) + '">' +
-        '<span class="duracion">' + m.duracionHoras + ' h</span>' +
+        '<span class="duracion">' + textoDuraciones(m) + '</span>' +
         '<strong>' + esc(m.nombre) + '</strong>' +
       '</button>').join('') +
     '</div><p class="modalidad-desc">' + esc(actual.descripcion) + '</p>';
@@ -572,11 +586,21 @@ function renderCalendario() {
   const n = numerosDePasos();
   $('#fecha-titulo').innerHTML = marcaPaso(n.fecha, !!E.r.fecha) + 'Elige la fecha';
 
+  const m = modalidadActual();
+  $('#ayuda-anticipacion').textContent = m.soloHoy
+    ? 'Esta modalidad es solo para hoy.'
+    : m.requiereAnticipacion === false
+      ? 'Puedes reservar desde hoy mismo. Los días no disponibles aparecen en gris.'
+      : 'Esta modalidad requiere ' + E.calendario.anticipacionHoras + ' horas de anticipación. Los días no disponibles aparecen en gris.';
+
   const v = E.r.vista;
-  const min = E.calendario.fechaMinima;
+  const rango = rangoFechas();
+  const min = rango.min;
+  const max = rango.max;
   const hoy = E.calendario.hoy;
   const minAnioMes = Number(min.slice(0, 4)) * 12 + Number(min.slice(5, 7)) - 1;
   const puedeRetroceder = v.anio * 12 + v.mes > minAnioMes;
+  const puedeAvanzar = !max || v.anio * 12 + v.mes < Number(max.slice(0, 4)) * 12 + Number(max.slice(5, 7)) - 1;
 
   const primero = new Date(Date.UTC(v.anio, v.mes, 1));
   const diasMes = new Date(Date.UTC(v.anio, v.mes + 1, 0)).getUTCDate();
@@ -586,7 +610,7 @@ function renderCalendario() {
   for (let i = 0; i < desfase; i++) celdas += '<div></div>';
   for (let d = 1; d <= diasMes; d++) {
     const ymd = v.anio + '-' + pad(v.mes + 1) + '-' + pad(d);
-    const deshabilitado = ymd < min;
+    const deshabilitado = ymd < min || (max && ymd > max);
     celdas += '<button class="cal-dia' + (ymd === hoy ? ' hoy' : '') + '" data-fecha="' + ymd + '"' +
       ' aria-label="' + esc(fechaLarga(ymd)) + (ymd === hoy ? ', hoy' : '') + '"' +
       ' aria-pressed="' + (ymd === E.r.fecha) + '"' + (deshabilitado ? ' disabled' : '') + '>' + d + '</button>';
@@ -596,7 +620,7 @@ function renderCalendario() {
     '<div class="cal-cabecera">' +
       '<button class="cal-nav" data-mes="-1" aria-label="Mes anterior"' + (puedeRetroceder ? '' : ' disabled') + '>' + icono('izquierda') + '</button>' +
       '<span class="cal-mes" aria-live="polite">' + MESES[v.mes] + ' ' + v.anio + '</span>' +
-      '<button class="cal-nav" data-mes="1" aria-label="Mes siguiente">' + icono('derecha') + '</button>' +
+      '<button class="cal-nav" data-mes="1" aria-label="Mes siguiente"' + (puedeAvanzar ? '' : ' disabled') + '>' + icono('derecha') + '</button>' +
     '</div>' +
     '<div class="cal-grid">' + celdas + '</div>';
 }
@@ -610,6 +634,7 @@ function cambiarMes(delta) {
 function seleccionarFecha(ymd) {
   E.r.fecha = ymd;
   E.r.hora = null;
+  E.r.duracion = null;
   renderCalendario();
   renderModalidades();
   $('#paso-horario').hidden = false;
@@ -642,9 +667,13 @@ function modalidadActual() {
 function modalidadDisponible() {
   return E.r.disp ? E.r.disp.modalidades.find(m => m.id === E.r.modalidadId) : null;
 }
+/** Devuelve {o: hora de inicio, d: duración} si la elección está completa. */
 function opcionSeleccionada() {
   const m = modalidadDisponible();
-  return m && E.r.hora !== null ? m.opciones.find(o => o.hora === E.r.hora && o.disponible) : null;
+  if (!m || E.r.hora === null) return null;
+  const o = m.opciones.find(x => x.hora === E.r.hora && x.disponible);
+  const d = o && o.duraciones.find(x => x.horas === E.r.duracion && x.disponible);
+  return o && d ? { o: o, d: d } : null;
 }
 
 function renderOpciones() {
@@ -667,14 +696,22 @@ function renderOpciones() {
     return;
   }
 
+  const aviso = m.aviso ? '<div class="aviso-linea">' + icono('alerta') + '<span>' + esc(m.aviso) + '</span></div>' : '';
+  if (!m.opciones.length) { cont.innerHTML = aviso; return; }
+
   const leyenda = '<div class="leyenda"><span><i class="punto libre"></i>Disponible</span>' +
     '<span><i class="punto ocupado"></i>No disponible</span></div>';
+  const variasDuraciones = (m.duraciones || []).length > 1;
 
   const botones = m.opciones.map(o => {
     let principal, secundario;
     if (m.presentacion === 'BLOQUES') {
       principal = o.horaInicio + ' – ' + o.horaFin;
       secundario = o.disponible ? 'Disponible' : TEXTO_ESTADO[o.estado];
+    } else if (variasDuraciones) {
+      principal = o.horaInicio;
+      const libres = o.duraciones.filter(d => d.disponible).map(d => d.horas);
+      secundario = o.disponible ? 'Hasta ' + Math.max.apply(null, libres) + ' h' : TEXTO_ESTADO[o.estado];
     } else {
       principal = o.horaInicio;
       secundario = o.disponible ? 'hasta ' + fechaCorta(o.fechaFin).replace(/^\S+ /, '') + ', ' + o.horaFin : TEXTO_ESTADO[o.estado];
@@ -687,32 +724,63 @@ function renderOpciones() {
   }).join('');
 
   const ninguno = !m.opciones.some(o => o.disponible);
-  cont.innerHTML = leyenda +
+  const elegida = m.opciones.find(o => o.hora === E.r.hora && o.disponible);
+  let selectorHoras = '';
+  if (variasDuraciones && elegida) {
+    selectorHoras = '<div class="duraciones"><h4 class="duraciones-titulo">¿Cuántas horas desde las ' + esc(elegida.horaInicio) + '?</h4>' +
+      '<div class="horarios">' + elegida.duraciones.map(d =>
+        '<button class="horario" data-duracion="' + d.horas + '"' + (d.disponible ? '' : ' disabled') +
+          ' aria-pressed="' + (d.disponible && d.horas === E.r.duracion) + '">' +
+          '<span class="marca-check">' + icono('check') + '</span>' +
+          '<strong>' + d.horas + (d.horas === 1 ? ' hora' : ' horas') + '</strong>' +
+          '<small>' + (d.disponible ? 'hasta las ' + esc(d.horaFin) : esc(TEXTO_ESTADO[d.estado])) + '</small></button>').join('') +
+      '</div></div>';
+  }
+  cont.innerHTML = aviso + leyenda +
     '<div class="horarios' + (m.presentacion === 'HORAS' ? ' horas' : '') + '">' + botones + '</div>' +
-    (ninguno ? '<div class="vacio">' + icono('calendarioVacio') +
+    selectorHoras +
+    (ninguno && !m.aviso ? '<div class="vacio">' + icono('calendarioVacio') +
       '<strong>No quedan horarios libres este día</strong><p>Elige otra fecha en el calendario.</p></div>' : '');
 }
 
 function seleccionarHora(hora) {
   E.r.hora = E.r.hora === hora ? null : hora;
+  E.r.duracion = null;
+  const m = modalidadDisponible();
+  const o = m && m.opciones.find(x => x.hora === E.r.hora);
+  if (o) {
+    const libres = o.duraciones.filter(d => d.disponible);
+    if (libres.length) E.r.duracion = libres[0].horas; // se preselecciona la más corta
+  }
+  renderOpciones();
+  actualizarBarraSeleccion();
+  const selector = $('.duraciones');
+  if (selector && window.innerWidth < 960) selector.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function seleccionarDuracion(horas) {
+  E.r.duracion = horas;
   renderOpciones();
   actualizarBarraSeleccion();
 }
 
 function actualizarBarraSeleccion() {
   const barra = $('#barra-seleccion');
-  const o = E.r && E.pantalla === 'reserva' ? opcionSeleccionada() : null;
-  barra.hidden = !o;
-  $('#contenido').classList.toggle('con-barra', !!o);
-  if (!o) return;
+  const sel = E.r && E.pantalla === 'reserva' ? opcionSeleccionada() : null;
+  barra.hidden = !sel;
+  $('#contenido').classList.toggle('con-barra', !!sel);
+  if (!sel) return;
+  const o = sel.o;
   const m = modalidadDisponible();
-  $('#sel-titulo').textContent = espacioActual().nombre + ', ' + o.horaInicio + ' a ' + o.horaFin;
+  $('#sel-titulo').textContent = espacioActual().nombre + ', ' + o.horaInicio + ' a ' + sel.d.horaFin;
   $('#sel-detalle').textContent = fechaLarga(o.fechaInicio) + ', ' + m.nombre.toLowerCase();
 }
 
 function abrirResumen() {
-  const o = opcionSeleccionada();
-  if (!o) return;
+  const sel = opcionSeleccionada();
+  if (!sel) return;
+  const o = sel.o;
+  const d = sel.d;
   const m = modalidadDisponible();
   const esp = espacioActual();
   abrirModal({
@@ -721,17 +789,17 @@ function abrirResumen() {
       '<div><dt>Espacio</dt><dd>' + esc(esp.nombre) + '</dd></div>' +
       '<div><dt>Modalidad</dt><dd>' + esc(m.nombre) + '</dd></div>' +
       '<div><dt>Inicio</dt><dd>' + esc(o.fechaInicio) + ' ' + esc(o.horaInicio) + '</dd></div>' +
-      '<div><dt>Fin</dt><dd>' + esc(o.fechaFin) + ' ' + esc(o.horaFin) + '</dd></div>' +
-      '<div><dt>Duración</dt><dd>' + m.duracionHoras + ' horas</dd></div>' +
+      '<div><dt>Fin</dt><dd>' + esc(d.fechaFin) + ' ' + esc(d.horaFin) + '</dd></div>' +
+      '<div><dt>Duración</dt><dd>' + d.horas + (d.horas === 1 ? ' hora' : ' horas') + '</dd></div>' +
       '</dl><p class="modal-nota">Quedará a nombre de ' + esc(E.usuario.nombreMostrar) + ' y visible en la agenda para todos.</p>',
     confirmar: 'Confirmar reserva',
     claseConfirmar: 'btn-exito',
-    alConfirmar: () => confirmarReserva(o.hora)
+    alConfirmar: () => confirmarReserva(o.hora, d.horas)
   });
 }
 
-async function confirmarReserva(hora) {
-  const r = await llamar('crearReserva', [E.r.espacioId, E.r.modalidadId, E.r.fecha, hora],
+async function confirmarReserva(hora, duracion) {
+  const r = await llamar('crearReserva', [E.r.espacioId, E.r.modalidadId, E.r.fecha, hora, duracion],
     { carga: 'Guardando tu reserva…' });
   if (!r) return;                         // sesión expirada
   if (r.ok) {
@@ -751,9 +819,29 @@ async function confirmarReserva(hora) {
     });
   } else {
     E.r.hora = null;
+    E.r.duracion = null;
     actualizarBarraSeleccion();
     cargarDisponibilidad();               // el horario pudo ser tomado por otra persona
   }
+}
+
+function cambiarModalidad(id) {
+  E.r.modalidadId = id;
+  E.r.hora = null;
+  E.r.duracion = null;
+  const m = modalidadActual();
+  const rango = rangoFechas();
+  const anterior = E.r.fecha;
+  if (m.soloHoy) {
+    E.r.fecha = E.calendario.hoy;                 // la única fecha posible
+  } else if (E.r.fecha && E.r.fecha < rango.min) {
+    E.r.fecha = null;
+    E.r.disp = null;
+  }
+  const ref = E.r.fecha || rango.min;
+  E.r.vista = { anio: Number(ref.slice(0, 4)), mes: Number(ref.slice(5, 7)) - 1 };
+  renderReserva();
+  if (E.r.fecha && E.r.fecha !== anterior) cargarDisponibilidad();
 }
 
 /* =========================================================================
@@ -816,6 +904,7 @@ function enlazarEventos() {
     if (!b || b.dataset.espacio === E.r.espacioId) return;
     E.r.espacioId = b.dataset.espacio;
     E.r.hora = null;
+    E.r.duracion = null;
     renderReserva();
     if (E.r.fecha) cargarDisponibilidad();
   });
@@ -823,11 +912,7 @@ function enlazarEventos() {
   $('#paso-modalidad').addEventListener('click', ev => {
     const b = ev.target.closest('[data-modalidad]');
     if (!b) return;
-    E.r.modalidadId = b.dataset.modalidad;
-    E.r.hora = null;
-    renderModalidades();
-    renderOpciones();
-    actualizarBarraSeleccion();
+    cambiarModalidad(b.dataset.modalidad);
   });
 
   $('#calendario').addEventListener('click', ev => {
@@ -838,6 +923,8 @@ function enlazarEventos() {
   });
 
   $('#opciones').addEventListener('click', ev => {
+    const dur = ev.target.closest('[data-duracion]');
+    if (dur) { if (!dur.disabled) seleccionarDuracion(Number(dur.dataset.duracion)); return; }
     const b = ev.target.closest('[data-hora]');
     if (b && !b.disabled) seleccionarHora(Number(b.dataset.hora));
   });
