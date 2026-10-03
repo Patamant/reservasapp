@@ -4,5 +4,5 @@
  * Debe empezar con https://script.google.com/macros/s/ y terminar en /exec
  */
 window.CONFIG_APP = {
-  API_URL: 'PEGA_AQUI_TU_URL_EXEC'
+  API_URL: 'https://script.google.com/macros/s/AKfycbycP8kof5zGJDfngh0bPfXqSvaB9ljAQl-9RlM-H1dTXLKQtICPHc1XCkCsqxQUKON_ow/exec'
 };
