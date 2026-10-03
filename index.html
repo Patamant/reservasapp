@@ -3,34 +3,37 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0F1E3D">
+  <title>Reservas</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2224%22 fill=%22%230F1E3D%22/><rect x=%2224%22 y=%2230%22 width=%2252%22 height=%2246%22 rx=%228%22 fill=%22none%22 stroke=%22%237AB648%22 stroke-width=%227%22/><path d=%22M24 46h52M38 22v14M62 22v14%22 stroke=%22%237AB648%22 stroke-width=%227%22 stroke-linecap=%22round%22/></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <title>Reservas</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📅</text></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="estilos.css">
 </head>
 <body>
 
-  <!-- ============================== LOGIN ============================== -->
-  <section id="pantalla-login" class="login">
-    <div class="login-panel">
+  <!-- ============================== INGRESO ============================== -->
+  <main id="pantalla-login" class="login">
+    <div class="login-fondo" aria-hidden="true"></div>
+    <div class="login-tarjeta">
       <div class="marca marca-login" data-marca></div>
       <h1 class="login-titulo" data-nombre-conjunto></h1>
-      <p class="login-sub">Reserva de parqueaderos y piscina</p>
+      <p class="login-sub">Reserva los parqueaderos y la piscina desde tu celular.</p>
 
       <form id="form-login" class="form-login" novalidate>
         <label class="campo-label" for="login-usuario">Usuario</label>
         <div class="campo">
           <span class="ico" data-ico="usuario"></span>
           <input id="login-usuario" name="usuario" type="text" autocomplete="username"
-                 autocapitalize="none" autocorrect="off" spellcheck="false" required>
+                 autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Tu usuario" required>
         </div>
 
         <label class="campo-label" for="login-password">Contraseña</label>
         <div class="campo">
           <span class="ico" data-ico="candado"></span>
-          <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+          <input id="login-password" name="password" type="password" autocomplete="current-password"
+                 placeholder="Tu contraseña" required>
           <button type="button" id="btn-ver-pass" class="campo-accion" aria-label="Mostrar contraseña">
             <span class="ico" data-ico="ojo"></span>
           </button>
@@ -40,81 +43,103 @@
 
         <button type="submit" id="btn-login" class="btn btn-primario btn-bloque">Ingresar</button>
       </form>
+
+      <p class="login-ayuda">¿Olvidaste tu contraseña? Pide una nueva a la administración del conjunto.</p>
     </div>
-  </section>
+  </main>
 
   <!-- ============================== APLICACIÓN ============================== -->
   <div id="shell" class="shell" hidden>
     <header class="barra">
       <div class="barra-menu">
         <button id="btn-menu" class="barra-btn" aria-haspopup="true" aria-expanded="false" aria-controls="menu-lista">
-          <span class="ico" data-ico="menu"></span><span>Menú</span>
+          <span class="ico" data-ico="menu"></span><span class="barra-txt">Menú</span>
         </button>
         <div id="menu-lista" class="menu" role="menu" hidden></div>
       </div>
+
       <div class="barra-usuario" title="Usuario conectado">
-        <span class="ico" data-ico="casa"></span>
+        <span id="avatar" class="avatar" aria-hidden="true"></span>
         <span id="nombre-usuario" class="barra-nombre"></span>
       </div>
-      <button id="btn-cerrar" class="barra-btn">
-        <span class="ico" data-ico="salir"></span><span>Cerrar</span>
+
+      <button id="btn-cerrar" class="barra-btn" aria-label="Cerrar sesión">
+        <span class="barra-txt">Cerrar</span><span class="ico" data-ico="salir"></span>
       </button>
     </header>
 
-    <main class="contenido">
+    <main class="contenido" id="contenido">
       <!-- ---------- PRINCIPAL ---------- -->
       <section id="pantalla-principal" class="pantalla">
-        <div class="marca marca-principal" data-marca></div>
+        <div class="portada">
+          <div class="marca marca-principal" data-marca></div>
+          <p class="saludo" id="saludo"></p>
+        </div>
 
-        <div id="botones-grupo" class="botones-grupo"></div>
+        <div id="botones-grupo" class="acciones"></div>
 
         <section class="agenda" aria-labelledby="agenda-titulo">
           <div class="agenda-cabecera">
-            <h2 id="agenda-titulo"><span class="ico" data-ico="calendario"></span>Agenda de espacios</h2>
+            <h2 id="agenda-titulo">Agenda de espacios</h2>
             <button id="btn-refrescar" class="btn-icono" aria-label="Actualizar agenda" title="Actualizar agenda">
               <span class="ico" data-ico="refrescar"></span>
             </button>
           </div>
-          <div id="agenda" class="agenda-lista"></div>
+          <div class="filtros" role="group" aria-label="Filtrar reservas">
+            <button class="filtro" data-filtro="todas" aria-pressed="true">Todas</button>
+            <button class="filtro" data-filtro="mias" aria-pressed="false">Mis reservas</button>
+          </div>
+          <div id="agenda" class="agenda-lista" aria-live="polite"></div>
         </section>
       </section>
 
       <!-- ---------- RESERVA (parqueaderos, piscina y futuros espacios) ---------- -->
       <section id="pantalla-reserva" class="pantalla" hidden>
         <div class="reserva-cabecera">
-          <button id="btn-volver" class="btn-volver"><span class="ico" data-ico="volver"></span>Volver</button>
+          <button id="btn-volver" class="btn-volver" aria-label="Volver al inicio">
+            <span class="ico" data-ico="volver"></span>
+          </button>
           <h2 id="reserva-titulo"></h2>
         </div>
 
-        <div id="paso-espacio" class="paso"></div>
-
-        <div id="paso-modalidad" class="paso" hidden></div>
-
-        <div id="paso-fecha" class="paso" hidden>
-          <h3 class="paso-titulo"><span class="ico" data-ico="calendario"></span>Fecha</h3>
-          <p id="ayuda-anticipacion" class="ayuda"></p>
-          <div id="calendario" class="calendario"></div>
-        </div>
-
-        <div id="paso-horario" class="paso" hidden>
-          <h3 class="paso-titulo" id="horario-titulo"><span class="ico" data-ico="reloj"></span>Horario</h3>
-          <div class="leyenda">
-            <span><i class="punto libre"></i>Disponible</span>
-            <span><i class="punto ocupado"></i>No disponible</span>
+        <div class="reserva-cuerpo">
+          <div class="reserva-col">
+            <section id="paso-espacio" class="paso"></section>
+            <section id="paso-modalidad" class="paso" hidden></section>
+            <section id="paso-fecha" class="paso" hidden>
+              <h3 class="paso-titulo" id="fecha-titulo"></h3>
+              <p id="ayuda-anticipacion" class="ayuda"></p>
+              <div id="calendario" class="calendario"></div>
+            </section>
           </div>
-          <div id="opciones"></div>
+          <div class="reserva-col">
+            <section id="paso-horario" class="paso" hidden>
+              <h3 class="paso-titulo" id="horario-titulo"></h3>
+              <p id="horario-fecha" class="ayuda"></p>
+              <div id="opciones"></div>
+            </section>
+          </div>
         </div>
       </section>
     </main>
+
+    <div id="barra-seleccion" class="barra-seleccion" hidden>
+      <div class="sel-info">
+        <strong id="sel-titulo"></strong>
+        <span id="sel-detalle"></span>
+      </div>
+      <button id="btn-revisar" class="btn btn-exito">Revisar y confirmar</button>
+    </div>
   </div>
 
   <!-- ============================== CAPAS ============================== -->
   <div id="modal" class="modal" hidden>
     <div class="modal-fondo" data-cerrar-modal></div>
     <div class="modal-caja" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+      <div id="modal-icono" class="modal-icono" hidden></div>
       <h3 id="modal-titulo"></h3>
       <div id="modal-cuerpo"></div>
-      <div class="modal-acciones">
+      <div class="modal-acciones" id="modal-acciones">
         <button id="modal-cancelar" class="btn btn-secundario" data-cerrar-modal>Volver</button>
         <button id="modal-confirmar" class="btn btn-primario"></button>
       </div>
