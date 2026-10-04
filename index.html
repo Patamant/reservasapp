@@ -65,8 +65,8 @@
         <span id="nombre-usuario" class="barra-nombre"></span>
       </div>
 
-      <button id="btn-cerrar" class="barra-btn" aria-label="Cerrar sesión">
-        <span class="barra-txt">Cerrar</span><span class="ico" data-ico="salir"></span>
+      <button id="btn-cerrar" class="barra-btn" aria-label="Salir: cerrar sesión" title="Cerrar sesión">
+        <span class="barra-txt">Salir</span><span class="ico" data-ico="salir"></span>
       </button>
     </header>
 
@@ -80,7 +80,7 @@
             <div class="portada-texto">
               <h1 class="saludo" id="saludo"></h1>
               <p class="portada-sub" id="portada-sub"></p>
-              <div id="proxima" class="proxima" aria-live="polite"></div>
+              <button id="proxima" class="proxima" type="button" aria-live="polite"></button>
             </div>
           </div>
         </div>
@@ -91,7 +91,7 @@
         <section class="ahora" aria-labelledby="ahora-titulo">
           <div class="ahora-cabecera">
             <h2 class="titulo-seccion" id="ahora-titulo">Ahora mismo</h2>
-            <span id="reloj" class="reloj"></span>
+            <p id="reloj" class="reloj"></p>
           </div>
           <div id="estado-espacios" class="estado-espacios"></div>
         </section>

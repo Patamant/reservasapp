@@ -1,11 +1,13 @@
 'use strict';
 
 /** Versión de la aplicación que se muestra en la pantalla de ingreso. */
-const VERSION_APP = '3.2';
+const VERSION_APP = '3.3';
 /** Versión mínima del servidor (VERSION_API de Codigo.gs) que necesita esta página. */
 const VERSION_API_REQUERIDA = '1.6';
 /** Logo publicado junto a la página en GitHub. Si falta, se usa el de Drive (Config → LOGO_FILE_ID). */
 const LOGO_LOCAL = 'logo.jpg';
+/** Versión recortada del logo (edificio y calendario) para la portada, donde se ve en pequeño. */
+const LOGO_PORTADA = 'logo-portada.jpg';
 
 /* =========================================================================
  *  ICONOS LINEALES
@@ -103,13 +105,43 @@ function fechaCorta(texto) {
   return DIAS_CORTOS[p.semana] + ' ' + p.dia + ' ' + MESES_CORTOS[p.mes];
 }
 
-/** "Casa 5 - Juan Pérez" → {nombre:"Juan Pérez", casa:5} */
+/** "PATRICIO BEJARANO S" → "Patricio Bejarano S." (solo para mostrar; la hoja no cambia). */
+const PARTICULAS = ['de', 'del', 'la', 'las', 'los', 'y', 'e'];
+function nombrePropio(texto) {
+  return String(texto || '').trim().toLowerCase().split(/\s+/).filter(Boolean).map((p, i) => {
+    if (i > 0 && PARTICULAS.indexOf(p) !== -1) return p;
+    if (/^[a-záéíóúñü]$/i.test(p)) return p.toUpperCase() + '.';          // inicial suelta
+    return p.replace(/(^|[-'])([a-záéíóúñü])/g, (m, s, c) => s + c.toUpperCase());
+  }).join(' ');
+}
+/** "Casa 1 - USUARIO DE PRUEBA" → "Casa 1 - Usuario de Prueba" */
+function nombreMostrarLegible(texto) {
+  const partes = String(texto || '').split(/\s+-\s+/);
+  if (partes.length > 1 && /^casa\s*\d+$/i.test(partes[0].trim())) {
+    return 'Casa ' + partes[0].replace(/\D/g, '') + ' - ' + nombrePropio(partes.slice(1).join(' - '));
+  }
+  return nombrePropio(texto);
+}
+/** "Casa 5 - Juan Pérez" → {nombre:"Juan Pérez", primerNombre:"Juan", casa:5} */
 function separarNombre(usuario) {
   const texto = (usuario && usuario.nombreMostrar) || '';
   const partes = texto.split(/\s+-\s+/);
-  const nombre = partes.length > 1 ? partes.slice(1).join(' - ') : texto;
-  return { nombre: nombre || texto, casa: usuario && usuario.casa };
+  const nombre = nombrePropio(partes.length > 1 ? partes.slice(1).join(' - ') : texto) || texto;
+  return { nombre: nombre, primerNombre: nombre.split(' ')[0], casa: usuario && usuario.casa };
 }
+
+/** Tipo de espacio (PARQUEADERO, PISCINA…) a partir de su id, para colorearlo siempre igual. */
+function tipoDeEspacio(idEspacio) {
+  const g = E.grupos.find(x => x.espacios.some(e => e.id === idEspacio));
+  return g ? g.tipo : 'OTRO';
+}
+function claseTipo(tipo) { return 'tipo-' + String(tipo || 'OTRO').toLowerCase(); }
+
+/** Qué se puede hacer en cada tipo de espacio (texto de las tarjetas de acción). */
+const DETALLE_GRUPO = {
+  PARQUEADERO: 'Por horas, todo el día o toda la noche',
+  PISCINA: 'Bloques de 2 h, de 08:00 a 18:00'
+};
 
 /* ---------- Placa del vehículo ---------- */
 /** Misma regla que el servidor: 5 a 8 letras y números, con ambos. Autos: PBA-1234. */
@@ -247,10 +279,15 @@ function pintarMarca() {
   $$('[data-marca]').forEach(el => {
     if (E.logo === undefined) { el.innerHTML = ''; return; }
     if (E.logo) {
+      const recorte = E.logo === LOGO_LOCAL && el.classList.contains('marca-principal');
+      el.classList.toggle('con-recorte', recorte);
       el.innerHTML = '<img alt="' + esc(E.nombreConjunto || 'Logo del conjunto') + '">';
       const img = el.querySelector('img');
-      img.onerror = () => { el.innerHTML = E.nombreConjunto ? '<div class="marca-texto">' + esc(E.nombreConjunto) + '</div>' : ''; };
-      img.src = E.logo;
+      img.onerror = () => {
+        if (recorte && img.src.indexOf(LOGO_PORTADA) !== -1) { img.src = LOGO_LOCAL; return; }  // sin recorte: logo completo
+        el.innerHTML = E.nombreConjunto ? '<div class="marca-texto">' + esc(E.nombreConjunto) + '</div>' : '';
+      };
+      img.src = recorte ? LOGO_PORTADA : E.logo;
     } else if (el.classList.contains('marca-login')) {
       el.innerHTML = '<span class="emblema">' + icono('calendario') + '</span>'; // el nombre ya está en el título
     } else {
@@ -355,9 +392,10 @@ async function cargarPrincipal() {
   E.filtro = 'todas';
 
   const persona = separarNombre(E.usuario);
-  $('#nombre-usuario').textContent = E.usuario.nombreMostrar;
-  $('#avatar').textContent = persona.casa ? 'C' + persona.casa : '·';
-  $('#saludo').textContent = 'Hola, ' + persona.nombre;
+  $('#nombre-usuario').textContent = persona.nombre;
+  $('#avatar').innerHTML = icono('casa') + '<b>' + (persona.casa || '') + '</b>';
+  $('#avatar').setAttribute('title', 'Casa ' + (persona.casa || ''));
+  $('#saludo').textContent = 'Hola, ' + persona.primerNombre;
   cargarSubtitulo();
 
   renderMenu();
@@ -379,6 +417,8 @@ function cargarSubtitulo() {
 }
 
 function renderMenu() {
+  // Con una sola opción el menú se muestra como ícono para no competir con el contenido.
+  $('#btn-menu').classList.toggle('solo-icono', E.menu.length <= 1);
   $('#menu-lista').innerHTML = E.menu.map(o =>
     '<button class="menu-item" role="menuitem" data-pantalla="' + esc(o.pantalla) + '">' +
       icono(o.icono) + '<span>' + esc(o.etiqueta) + '</span></button>').join('');
@@ -399,10 +439,10 @@ function renderAcciones() {
     return;
   }
   cont.innerHTML = E.grupos.map(g => {
-    const detalle = g.espacios.length > 1
+    const detalle = DETALLE_GRUPO[g.tipo] || (g.espacios.length > 1
       ? listaNatural(g.espacios.map(e => e.nombre))
-      : listaNatural(g.modalidades.map(m => m.nombre.toLowerCase())).replace(/^./, c => c.toUpperCase());
-    return '<button class="accion" data-grupo="' + esc(g.tipo) + '">' +
+      : listaNatural(g.modalidades.map(m => m.nombre.toLowerCase())).replace(/^./, c => c.toUpperCase()));
+    return '<button class="accion ' + claseTipo(g.tipo) + '" data-grupo="' + esc(g.tipo) + '">' +
       '<span class="accion-icono">' + icono(g.icono) + '</span>' +
       '<span class="accion-texto"><strong>' + esc(g.etiqueta) + '</strong><span>' + esc(detalle) + '</span></span>' +
       '<span class="accion-flecha" aria-hidden="true">' + icono('derecha') + '</span>' +
@@ -449,7 +489,8 @@ function ahoraEcuador() {
 function renderAhora() {
   if (!E.usuario) return;
   const ahora = ahoraEcuador();
-  $('#reloj').textContent = fechaLarga(ahora.fecha).replace(/^./, c => c.toUpperCase()) + ', ' + ahora.hora;
+  $('#reloj').textContent = fechaLarga(ahora.fecha).replace(/^./, c => c.toUpperCase()) + ', ' + ahora.hora +
+    '. Toca un espacio para reservarlo.';
 
   const hoy = ahora.fecha.replace(/-/g, '');
   const cont = $('#estado-espacios');
@@ -465,18 +506,20 @@ function renderAhora() {
     if (actual) {
       estado = 'ocupado';
       const otroDia = claveFecha(actual.fechaFin, actual.horaFin).slice(0, 8) !== hoy;
-      detalle = 'Ocupado hasta ' + (otroDia ? fechaCorta(actual.fechaFin) + ', ' : 'las ') + actual.horaFin;
+      detalle = 'hasta ' + (otroDia ? fechaCorta(actual.fechaFin) + ', ' : 'las ') + actual.horaFin;
     } else if (siguiente) {
       estado = 'libre';
-      detalle = 'Libre hasta las ' + siguiente.horaInicio;
+      detalle = 'hasta las ' + siguiente.horaInicio;
     } else {
       estado = 'libre';
-      detalle = 'Libre el resto del día';
+      detalle = 'el resto del día';
     }
-    tarjetas.push('<button class="estado-espacio ' + estado + '" data-ir-grupo="' + esc(g.tipo) + '" data-ir-espacio="' + esc(esp.id) + '">' +
+    tarjetas.push('<button class="estado-espacio ' + estado + ' ' + claseTipo(g.tipo) + '" data-ir-grupo="' + esc(g.tipo) + '" data-ir-espacio="' + esc(esp.id) + '"' +
+      ' aria-label="' + esc(esp.nombre + ': ' + (estado === 'libre' ? 'libre ' : 'ocupado ') + detalle + '. Reservar') + '">' +
       '<span class="estado-icono">' + icono(g.icono) + '</span>' +
-      '<span class="estado-texto"><strong>' + esc(esp.nombre) + '</strong><span>' + esc(detalle) + '</span></span>' +
-      '<span class="estado-punto" aria-hidden="true"></span>' +
+      '<span class="estado-texto"><strong>' + esc(esp.nombre) + '</strong>' +
+        '<span class="estado-linea"><span class="estado-etiqueta">' + (estado === 'libre' ? 'Libre' : 'Ocupado') + '</span>' + esc(detalle) + '</span></span>' +
+      '<span class="estado-ir" aria-hidden="true">Reservar' + icono('derecha') + '</span>' +
     '</button>');
   }));
   cont.innerHTML = tarjetas.join('');
@@ -496,14 +539,21 @@ function renderProxima() {
   mias.sort((a, b) => claveFecha(a.fechaInicio, a.horaInicio) < claveFecha(b.fechaInicio, b.horaInicio) ? -1 : 1);
   const r = mias[0];
   const cont = $('#proxima');
+  const primerGrupo = E.grupos[0];
   if (!r) {
-    cont.innerHTML = '<span class="ico-redondo">' + icono('calendario') + '</span><span>No tienes reservas próximas</span>';
+    cont.dataset.accion = primerGrupo ? 'reservar' : '';
+    cont.dataset.grupo = primerGrupo ? primerGrupo.tipo : '';
+    cont.innerHTML = '<span class="ico-redondo">' + icono('calendario') + '</span>' +
+      '<span>No tienes reservas próximas.' +
+      (primerGrupo ? ' <strong>' + esc(primerGrupo.tipo === 'PARQUEADERO' ? 'Reserva un parqueadero' : primerGrupo.etiqueta) + '</strong>' : '') +
+      '</span>' + (primerGrupo ? icono('derecha', 'proxima-flecha') : '');
     return;
   }
+  cont.dataset.accion = 'ver-mias';
   const cuando = r.enCurso ? 'en curso hasta las ' + r.horaFin : fechaCorta(r.fechaInicio) + ', ' + r.horaInicio;
-  cont.innerHTML = '<span class="ico-redondo">' + icono('check') + '</span>' +
+  cont.innerHTML = '<span class="ico-redondo">' + icono('calendario') + '</span>' +
     '<span>' + (r.enCurso ? 'Ahora' : 'Tu próxima reserva') + ': <strong>' + esc(r.nombreEspacio) + ', ' + esc(cuando) + '</strong>' +
-    (mias.length > 1 ? ' (+' + (mias.length - 1) + ')' : '') + '</span>';
+    (mias.length > 1 ? ' (+' + (mias.length - 1) + ' más)' : '') + '</span>' + icono('derecha', 'proxima-flecha');
 }
 
 function renderAgenda() {
@@ -528,10 +578,12 @@ function renderAgenda() {
   cont.innerHTML = grupos.map(g => {
     g.reservas.forEach(r => { E.agendaIndice[r.idReserva] = r; });
     const n = g.reservas.length;
-    return '<section class="grupo">' +
+    return '<section class="grupo ' + claseTipo(tipoDeEspacio(g.idEspacio)) + '">' +
       '<h3 class="grupo-titulo"><span class="grupo-icono">' + icono(g.icono) + '</span>' + esc(g.nombreEspacio) +
         '<span class="grupo-cuenta">' + n + (n === 1 ? ' reserva' : ' reservas') + '</span></h3>' +
-      '<div class="grupo-lista">' + g.reservas.map((r, i) => tarjetaReserva(r).replace('<article ', '<article style="--i:' + Math.min(i, 8) + '" ')).join('') + '</div>' +
+      '<div class="grupo-lista' + (n === 1 ? ' unica' : '') + '">' +
+        g.reservas.map((r, i) => tarjetaReserva(Object.assign({ idEspacio: g.idEspacio }, r))
+          .replace('<article ', '<article style="--i:' + Math.min(i, 8) + '" ')).join('') + '</div>' +
     '</section>';
   }).join('');
 }
@@ -545,28 +597,23 @@ function tarjetaReserva(r) {
       '<span class="dia-mes">' + MESES_CORTOS[p.mes] + '</span>' +
     '</div>';
 
-  const hora = esc(r.horaInicio) + ' a ' + esc(r.horaFin) +
-    (r.mismoDia ? '' : '<small>día siguiente</small>');
-
-  const detalle = r.mismoDia
-    ? '<div class="ticket-linea"><span>Fecha:</span> ' + esc(r.fechaInicio) + '</div>' +
-      '<div class="ticket-linea"><span>Horario:</span> ' + esc(r.horaInicio) + ' a ' + esc(r.horaFin) + '</div>'
-    : '<div class="ticket-linea"><span>Horario:</span> Desde ' + esc(r.fechaInicio) + ' ' + esc(r.horaInicio) +
-      ' hasta ' + esc(r.fechaFin) + ' ' + esc(r.horaFin) + '</div>';
+  // El talón ya muestra la fecha: el cuerpo solo da el horario y quién reservó.
+  const hora = esc(r.horaInicio) + ' a ' + esc(r.horaFin);
+  const termina = r.mismoDia ? '' :
+    '<div class="ticket-termina">Termina el ' + esc(fechaCorta(r.fechaFin)) + ' a las ' + esc(r.horaFin) + '</div>';
 
   const etiquetas =
-    (r.esPropia ? '<span class="etiqueta mia">' + icono('check') + 'Tu reserva</span>' : '') +
+    (r.esPropia ? '<span class="etiqueta mia">' + icono('usuario') + 'Tu reserva</span>' : '') +
     (r.enCurso ? '<span class="etiqueta curso">En curso</span>' : '') +
     (r.modalidad ? '<span class="etiqueta tipo">' + esc(r.modalidad) + '</span>' : '');
 
-  return '<article class="ticket' + (r.esPropia ? ' propia' : '') + '" aria-label="' +
+  return '<article class="ticket ' + claseTipo(tipoDeEspacio(r.idEspacio || '') || '') + (r.esPropia ? ' propia' : '') + '" aria-label="' +
       esc(r.nombreEspacio + ', ' + fechaLarga(r.fechaInicio) + ', ' + r.horaInicio + ' a ' + r.horaFin) + '">' +
     talon +
     '<div class="ticket-cuerpo">' +
-      '<div class="ticket-espacio">' + esc(r.nombreEspacio) + '</div>' +
       '<div class="ticket-hora">' + hora + '</div>' +
-      '<div class="ticket-linea"><span>Reservado por:</span> ' + esc(r.nombreMostrar) + '</div>' +
-      detalle +
+      termina +
+      '<div class="ticket-linea"><span>Reservado por:</span> ' + esc(nombreMostrarLegible(r.nombreMostrar)) + '</div>' +
       (r.placa ? '<div class="ticket-linea"><span>Placa:</span> <b class="placa-chip">' + esc(r.placa) + '</b></div>' : '') +
       '<div class="ticket-pie"><div class="ticket-etiquetas">' + etiquetas + '</div>' +
         (r.cancelable ? '<button class="btn-cancelar" data-cancelar="' + esc(r.idReserva) + '">Cancelar</button>' : '') +
@@ -1072,6 +1119,17 @@ function enlazarEventos() {
     renderFiltros();
     renderAgenda();
   }));
+
+  $('#proxima').addEventListener('click', () => {
+    const el = $('#proxima');
+    if (el.dataset.accion === 'reservar' && el.dataset.grupo) abrirGrupo(el.dataset.grupo);
+    if (el.dataset.accion === 'ver-mias') {
+      E.filtro = 'mias';
+      renderFiltros();
+      renderAgenda();
+      $('.agenda').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
 
   $('#estado-espacios').addEventListener('click', ev => {
     const b = ev.target.closest('[data-ir-grupo]');

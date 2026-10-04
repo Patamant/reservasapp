@@ -710,6 +710,87 @@ h1, h2, h3 { margin: 0; line-height: 1.2; letter-spacing: -0.01em; }
   .marca-principal img { height: 112px; }
 }
 
+
+/* =========================================================================
+ *  VERSIÓN 3.3 · Ajustes de lectura (colores con un solo significado)
+ *  Verde  = libre o confirmado.   Azul = tus reservas y acciones.
+ *  Cada tipo de espacio tiene un color fijo en toda la app.
+ * ========================================================================= */
+.tipo-parqueadero { --tipo: var(--marino); }
+.tipo-piscina     { --tipo: var(--azul); }
+
+/* Íconos de espacio: mismo tratamiento en todas las secciones */
+.acciones .accion .accion-icono,
+.estado-espacio .estado-icono,
+.grupo .grupo-icono {
+  background: var(--tipo, var(--marino)); color: var(--blanco);
+}
+.grupo .grupo-icono { width: 32px; height: 32px; border-radius: 10px; }
+
+/* ---------- Barra superior ---------- */
+.avatar {
+  width: auto; height: 32px; padding: 0 10px 0 8px; gap: 4px; border-radius: 999px;
+  background: rgba(255,255,255,.14); color: var(--blanco); font-size: .85rem;
+}
+.avatar .ico { width: 16px; height: 16px; }
+.avatar b { font-weight: 600; }
+#btn-menu.solo-icono .barra-txt { display: none; }
+#btn-menu.solo-icono { padding: 8px 10px; }
+
+/* ---------- Portada ---------- */
+.marca-principal.con-recorte { width: 92px; height: 124px; padding: 0; overflow: hidden; border-radius: 22px; }
+.marca-principal.con-recorte img { width: 100%; height: 100%; object-fit: cover; border-radius: 0; }
+@media (min-width: 640px) {
+  .marca-principal.con-recorte { width: 104px; height: 140px; }
+  .marca-principal.con-recorte img { height: 100%; }
+}
+.proxima {
+  border: 0; color: var(--blanco); font: inherit; font-size: .9rem; cursor: pointer;
+  transition: background-color .15s;
+}
+.proxima .ico-redondo { background: rgba(255,255,255,.16); color: var(--blanco); }
+.proxima strong { font-weight: 600; }
+.proxima .proxima-flecha { width: 18px; height: 18px; opacity: .75; margin-left: 2px; }
+@media (hover: hover) { .proxima:hover { background: rgba(255,255,255,.18); } }
+
+/* ---------- Ahora mismo ---------- */
+.ahora-cabecera { flex-direction: column; align-items: flex-start; gap: 2px; }
+.reloj { margin: 0; }
+.estado-espacio { box-shadow: inset 0 0 0 1px var(--linea); background: var(--blanco); }
+.estado-texto .estado-linea { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+.estado-texto .estado-etiqueta { display: inline-flex; flex: none; }
+.estado-texto .estado-linea { color: var(--tinta-2); font-weight: 400; }
+.estado-espacio.libre .estado-texto .estado-linea { color: var(--tinta-2); font-weight: 400; }
+.estado-etiqueta {
+  display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 999px;
+  font-size: .76rem; font-weight: 600;
+}
+.estado-espacio.libre .estado-etiqueta { background: var(--verde-lavado); color: var(--verde-osc); }
+.estado-espacio.libre .estado-etiqueta::before {
+  content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--verde); animation: pulso 2.2s ease-out infinite;
+}
+.estado-espacio.ocupado .estado-etiqueta { background: #ECEEF2; color: var(--tinta-2); }
+.estado-ir {
+  display: inline-flex; align-items: center; gap: 2px; flex: none;
+  font-size: .82rem; font-weight: 600; color: var(--azul-2);
+}
+.estado-ir .ico { width: 16px; height: 16px; }
+@media (hover: hover) { .estado-espacio:hover { background: var(--azul-lavado); box-shadow: inset 0 0 0 1px #C9DAF1; } }
+
+/* ---------- Tickets: el talón usa el color del espacio; tus reservas, borde azul ---------- */
+.ticket { --stub: var(--tipo, var(--marino)); }
+.ticket.propia { --stub: var(--tipo, var(--marino)); box-shadow: inset 0 0 0 2px var(--azul); }
+.ticket.propia .ticket-talon { color: var(--blanco); }
+.ticket.propia .ticket-cuerpo { border-left-color: #A9C3E8; }
+.etiqueta.mia { background: var(--azul-lavado); color: var(--azul-2); }
+.ticket-hora { font-size: 1.3rem; }
+.ticket-termina { font-size: .84rem; color: var(--azul-2); font-weight: 500; margin-top: 1px; }
+
+/* Una sola reserva ocupa todo el ancho; varias se reparten en columnas */
+@media (min-width: 960px) {
+  .grupo-lista { grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
