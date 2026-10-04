@@ -1,7 +1,11 @@
 'use strict';
 
-/** Versión de esta página. Debe coincidir con VERSION_API de Codigo.gs. */
-const VERSION_APP = '1.6';
+/** Versión de la aplicación que se muestra en la pantalla de ingreso. */
+const VERSION_APP = '3.2';
+/** Versión mínima del servidor (VERSION_API de Codigo.gs) que necesita esta página. */
+const VERSION_API_REQUERIDA = '1.6';
+/** Logo publicado junto a la página en GitHub. Si falta, se usa el de Drive (Config → LOGO_FILE_ID). */
+const LOGO_LOCAL = 'logo.jpg';
 
 /* =========================================================================
  *  ICONOS LINEALES
@@ -1139,27 +1143,40 @@ function enlazarEventos() {
 /** Muestra la versión y avisa si el servidor (Apps Script) quedó con una versión anterior. */
 function mostrarVersion(versionServidor) {
   const el = $('#version');
-  if (versionServidor === VERSION_APP) {
+  if (versionServidor === undefined || versionServidor === VERSION_API_REQUERIDA) {
     el.textContent = 'Versión ' + VERSION_APP;
     el.classList.remove('alerta');
   } else {
-    el.textContent = 'Aviso para la administración: la página es la versión ' + VERSION_APP +
-      ' pero el servidor tiene la ' + (versionServidor || 'anterior') +
+    el.textContent = 'Versión ' + VERSION_APP + '. Aviso para la administración: el servidor tiene la versión ' +
+      (versionServidor || 'anterior') + ' y esta página necesita la ' + VERSION_API_REQUERIDA +
       '. Publica la nueva versión en Apps Script (Gestionar implementaciones → Nueva versión).';
     el.classList.add('alerta');
   }
+}
+
+/** Carga el logo de GitHub; si no existe, lo pide al servidor (Drive). */
+function cargarLogo() {
+  const img = new Image();
+  img.onload = () => { E.logo = LOGO_LOCAL; pintarMarca(); };
+  img.onerror = () => {
+    if (!API_CONFIGURADA) { E.logo = null; pintarMarca(); return; }
+    api('getLogo')
+      .then(uri => { E.logo = uri || null; pintarMarca(); })
+      .catch(() => { E.logo = null; pintarMarca(); });
+  };
+  img.src = LOGO_LOCAL;
 }
 
 function iniciar() {
   $$('[data-ico]').forEach(el => { el.innerHTML = svg(el.dataset.ico); el.setAttribute('aria-hidden', 'true'); });
   enlazarEventos();
   pintarMarca();
+  mostrarVersion();
+  cargarLogo();
 
   if (!API_CONFIGURADA) {
     mensajeLogin('Falta configurar la dirección del servidor en config.js.');
     $('#btn-login').disabled = true;
-    E.logo = null;
-    pintarMarca();
     return;
   }
 
@@ -1174,10 +1191,6 @@ function iniciar() {
       }
     })
     .catch(() => {});
-
-  api('getLogo')
-    .then(uri => { E.logo = uri || null; pintarMarca(); })
-    .catch(() => { E.logo = null; pintarMarca(); });
 
   $('#login-usuario').focus();
 }

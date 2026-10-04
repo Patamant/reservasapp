@@ -589,8 +589,12 @@ h1, h2, h3 { margin: 0; line-height: 1.2; letter-spacing: -0.01em; }
 }
 
 /* ---------- Versión en el ingreso ---------- */
-.version { margin: 14px 0 0; font-size: .75rem; color: #9AA3B5; font-weight: 300; }
-.version.alerta { color: var(--error); font-weight: 500; font-size: .8rem; line-height: 1.4; }
+.version {
+  display: inline-block; margin: 16px 0 0; padding: 4px 12px; border-radius: 999px;
+  background: var(--superficie); color: var(--tinta-2); font-size: .78rem; font-weight: 500; letter-spacing: .02em;
+}
+.version:empty { display: none; }
+.version.alerta { display: block; border-radius: var(--r-campo); background: #FCEDEC; color: var(--error); font-size: .8rem; line-height: 1.4; padding: 8px 12px; }
 
 /* ---------- Franja de portada con luz que se desplaza lentamente ---------- */
 .portada-fondo { background-size: 160% 160%, auto; animation: deriva 18s ease-in-out infinite alternate; }
@@ -695,6 +699,15 @@ h1, h2, h3 { margin: 0; line-height: 1.2; letter-spacing: -0.01em; }
 .placa-chip {
   display: inline-block; padding: 1px 8px; border-radius: 6px; font-weight: 600; letter-spacing: .06em;
   background: var(--blanco); box-shadow: inset 0 0 0 1.5px var(--marino); font-size: .82rem;
+}
+
+/* ---------- Logo ilustrado (formato horizontal) ---------- */
+.marca-login { min-height: 150px; margin: -8px -4px 0; }
+.marca-login img { width: 100%; max-width: 300px; max-height: none; }
+.marca-principal { width: auto; height: auto; padding: 8px 14px; border-radius: 26px; }
+.marca-principal img { height: 96px; width: auto; max-height: none; border-radius: 14px; }
+@media (min-width: 640px) {
+  .marca-principal img { height: 112px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
